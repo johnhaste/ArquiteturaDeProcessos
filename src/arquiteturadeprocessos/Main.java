@@ -15,8 +15,11 @@ public class Main {
     public static void main(String[] args) {
         
         Scanner teclado = new Scanner(System.in);
+        System.out.println("Digite um nome de usuário");
+        String nomeUser = teclado.nextLine();
+        System.out.println("Digite uma porta para acessar o Sonin Bleinin Torrent");
         int porta = teclado.nextInt();
-        Usuario a = new Usuario("Joaozinho Da Padaria",porta);
+        Usuario a = new Usuario(nomeUser,porta);
         a.SendOlah();
     }
 }
