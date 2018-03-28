@@ -29,6 +29,7 @@ public class MulticastPeer extends Thread {
     }
 
     @Override
+    //FICA OUVINDO A PORTA DE MULTICAST PARA RECEBER AS MENSAGENS E DEPOIS TRATAR
     public void run() {
         byte[] mensagem;
         while(true){
@@ -40,7 +41,10 @@ public class MulticastPeer extends Thread {
                 
                 //------------------------------ print debug
                 System.out.println(new String(mensagem));
-            
+                
+                this.user.AdicionaNovoUsuario("COCO", "XIXI");
+                this.user.ExibeUsuariosDaRede();
+                
             } catch (IOException ex) {
                 Logger.getLogger(MulticastPeer.class.getName()).log(Level.SEVERE, null, ex);
             } 
@@ -55,7 +59,7 @@ public class MulticastPeer extends Thread {
             mensagemEnviada = new DatagramPacket(mensagem, mensagem.length, this.group, 6789);
 
             this.socket.send(mensagemEnviada);//com o socket já instanciado, envamos o datagrampacket    
-
+            
         } catch (SocketException e) {
             System.out.println("Socket: " + e.getMessage());
         } catch (IOException e) {

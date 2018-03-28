@@ -17,20 +17,19 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-
 /**
- *
- * @author John Haste
- */
+ Entidade que representa um usuário na rede
+*/
 public class Usuario implements Serializable{
     private String nome_usuario;
     private int porta_usuario;
     private PrivateKey chave_privada;
     private PublicKey chave_publica;
-    //Chave dos outros
+    //Chave dos outros (Nome de Usuário, Chave Pública)
     private HashMap<String, String> listaDeChavesUsuarios;
     //Lista de arquivos que possui
     private ArrayList<String> listaDeArquivos;
@@ -38,11 +37,12 @@ public class Usuario implements Serializable{
     private HashMap<String, String> listaDeReputacao;
     
     public MulticastPeer conexao_multicast;
-
+    
     public Usuario(String nome_usuario, int porta_usuario) {
         try {
             this.nome_usuario = nome_usuario;
             this.porta_usuario = porta_usuario;
+            this.listaDeChavesUsuarios = new HashMap();
             CriaParDeChaves();
             conexao_multicast = new MulticastPeer(this);
         } catch (IOException ex) {
@@ -69,8 +69,30 @@ public class Usuario implements Serializable{
         System.out.println("Chave Privada: " + this.chave_privada.toString());
     }
     public void SendOlah(){
+  
+        //String mensagem = "{ChavePublica:" + this.chave_publica.toString() + ",NomeDeUsuario:"+this.nome_usuario+"}";
+        String mensagem = "Eu sou o " + this.nome_usuario;
         
-        conexao_multicast.enviaMensagem("Olar".getBytes());
+        conexao_multicast.enviaMensagem(mensagem.getBytes());
+    
     }
+    
+    public void AdicionaNovoUsuario(String NomeDeUsuario, String ChavePublica){
+        
+        
+        System.out.println(NomeDeUsuario+","+ChavePublica);
+        
+        //Chave dos outros (Nome de Usuário, Chave Pública)
+        this.listaDeChavesUsuarios.put(NomeDeUsuario, ChavePublica);
+    
+    }
+    
+    public void ExibeUsuariosDaRede(){
+        
+        this.listaDeChavesUsuarios.forEach((k,v) -> System.out.println("key: "+k+" value:"+v));
+        
+    }
+    
+    
     
 }
