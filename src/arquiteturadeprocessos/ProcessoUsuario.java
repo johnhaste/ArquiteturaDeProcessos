@@ -34,38 +34,39 @@ import java.util.regex.Pattern;
 /**
  Entidade que representa um usuário na rede
 */
-public class Usuario implements Serializable{
+public class ProcessoUsuario implements Serializable{
     //Informações do Usuário
     private String nome_usuario;
-    private int porta_usuario;
+    private Integer porta_usuario;
+    private String enderecoIP;
     private PrivateKey chave_privada;
     private PublicKey chave_publica;
-    
-    //Chave dos outros (Nome de Usuário, Chave Pública)
-    private HashMap<String, PublicKey> listaDeChavesUsuarios;
-   
+    //Chave dos outros (Porta dos Usuários, Chave Pública)
+    private HashMap<Integer, PublicKey> listaDeChavesUsuarios;
     //Lista de arquivos que possui
     private ArrayList<String> listaDeArquivos;
-    
     //Reputação dos outros
     private HashMap<String, String> listaDeReputacao;
-    
     //MulticastPeer
     public MulticastPeer conexao_multicast;
+    //Servidor Unicast
+    public UDPServer conexao_unicast_server;
     
-    public Usuario(String nome_usuario, int porta_usuario) {
+    public ProcessoUsuario(String nome_usuario, int porta_usuario) {
         try {
             this.nome_usuario = nome_usuario;
-            this.porta_usuario = porta_usuario;
+            this.porta_usuario = new Integer(porta_usuario);
+            this.enderecoIP = "192.168.1.3"; //COLOCAR O IP DA REDE ONDE O APP RODARÁ
             this.listaDeChavesUsuarios = new HashMap();
             CriaParDeChaves();
             
-            listaDeChavesUsuarios = new HashMap<String, PublicKey>();
-            listaDeChavesUsuarios.put(this.nome_usuario,this.chave_publica);
+            listaDeChavesUsuarios = new HashMap<>();
+            listaDeChavesUsuarios.put(this.porta_usuario,this.chave_publica);
             conexao_multicast = new MulticastPeer(this);
+            conexao_unicast_server = new UDPServer(this);
             
         } catch (IOException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(ProcessoUsuario.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
     private void CriaParDeChaves(){
@@ -78,7 +79,7 @@ public class Usuario implements Serializable{
             this.chave_privada = pares.getPrivate();
             this.chave_publica = pares.getPublic();
         } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(ProcessoUsuario.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
     
@@ -88,33 +89,50 @@ public class Usuario implements Serializable{
         System.out.println("Chave Privada: " + this.chave_privada.toString());
     }
     
-    public void SendOlah(){   
-        
+    public void SendOlah(String metodo, int porta){
         byte[] chavePub = this.chave_publica.getEncoded();
-        //TESTA SE A CONVERSÃO INVERSA ESTÁ CERTA
-        System.out.println(this.listaDeChavesUsuarios);
-        String mensagem = "="+this.nome_usuario + ";" + Base64.getEncoder().encodeToString(chavePub)+";";
-        conexao_multicast.enviaMensagem(mensagem.getBytes());
+        String mensagem = "="+ this.porta_usuario.toString() + ";" + Base64.getEncoder().encodeToString(chavePub)+";";
+        if(metodo.equals("MULTICAST")){
+            conexao_multicast.enviaMensagem(mensagem.getBytes());
+        }else if(metodo.equals("UNICAST")){
+            UDPClient conexao_unicast = new UDPClient(mensagem.getBytes(), this.enderecoIP, porta);
+        }
     }
     
+    //O USUÁRIO QUE RECEBE UM NOVO 'Olah' DO MULTICAST, ADICIONA O USUÁRIO QUE ENVIOU A MENSAGEM SE NÃO FOR ELE MESMO
     public void AdicionaUsuarioNaLista(String mensagemParaTratar) throws NoSuchAlgorithmException, InvalidKeySpecException{
-        
-        HashMap<String, PublicKey> hashTemp = new HashMap<>();
+        HashMap<Integer, PublicKey> hashTemp = new HashMap<>();
         String[] userTemp = mensagemParaTratar.split(Pattern.quote(";"));
         //DECODIFICAÇÃO DA CHAVE PUBLICA
         byte[] encodedKey = Base64.getDecoder().decode(userTemp[1]);
         EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(encodedKey);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         PublicKey p = keyFactory.generatePublic(publicKeySpec);
-        
-        hashTemp.put(userTemp[0], p);
+        Integer portaAux = Integer.parseInt(userTemp[0].replace("=", ""));
+        hashTemp.put(portaAux, p);
         System.out.println("RECEBEU: " + hashTemp.toString());
-         
+        
+        if(!this.listaDeChavesUsuarios.containsKey(portaAux)){
+            this.listaDeChavesUsuarios.put(portaAux,p);
+            System.out.println("ADICIONADO O USUÁRIO DA PORTA:" + portaAux + "CONTENDO A CHAVE PUB: " + p.toString());
+            SendOlah("UNICAST", portaAux);
+        }else if(portaAux.equals(this.porta_usuario)){
+            System.out.println("NÃO É POSSÍVEL ADICIONAR A SI MESMO.");
+        }else{
+            System.out.println("USUÁRIO JÁ EXISTENTE NA SUA LISTA LHE ENVIOU UM OLAH");
+        }
+    }    
+    
+    public String getNome_usuario() {
+        return nome_usuario;
+    }
+
+    public int getPorta_usuario() {
+        return porta_usuario;
     }
     
     public void ExibeUsuariosDaRede(){
         
         this.listaDeChavesUsuarios.forEach((k,v) -> System.out.println("key: "+k+" value:"+v));
-        
     }    
 }

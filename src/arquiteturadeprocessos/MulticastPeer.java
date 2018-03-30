@@ -1,6 +1,6 @@
 package arquiteturadeprocessos;
 
-import arquiteturadeprocessos.Usuario;
+import arquiteturadeprocessos.ProcessoUsuario;
 import sun.security.ec.ECKeyPairGenerator;
 
 import java.net.*;
@@ -19,9 +19,9 @@ public class MulticastPeer extends Thread {
 
     private MulticastSocket socket;
     private InetAddress group = null;
-    private Usuario user;
+    private ProcessoUsuario user;
 
-    MulticastPeer(Usuario user) throws IOException {
+    MulticastPeer(ProcessoUsuario user) throws IOException {
 
         this.user = user;
         this.group = InetAddress.getByName("228.5.6.7");
@@ -36,7 +36,7 @@ public class MulticastPeer extends Thread {
         byte[] mensagem;
         while(true){
             try{
-                byte[] buffer = new byte[1000];
+                byte[] buffer = new byte[4096];
                 DatagramPacket mensagemEntrada = new DatagramPacket(buffer,buffer.length);
                 this.socket.receive(mensagemEntrada);
                 mensagem = mensagemEntrada.getData();
@@ -45,9 +45,7 @@ public class MulticastPeer extends Thread {
                 if(mensagem[0]=='='){
                     try {
                         this.user.AdicionaUsuarioNaLista(new String(mensagem));
-                    } catch (NoSuchAlgorithmException ex) {
-                        Logger.getLogger(MulticastPeer.class.getName()).log(Level.SEVERE, null, ex);
-                    } catch (InvalidKeySpecException ex) {
+                    } catch (NoSuchAlgorithmException | InvalidKeySpecException ex) {
                         Logger.getLogger(MulticastPeer.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }

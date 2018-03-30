@@ -24,9 +24,9 @@ public class Main {
         int porta = teclado.nextInt();
         
         //Cria um novo processo para o usuário
-        Usuario a = new Usuario(nomeUser,porta);
+        ProcessoUsuario a = new ProcessoUsuario(nomeUser,porta);
         
         //Envia um "oi" para a rede, para os outros adicionarem ele
-        a.SendOlah();
+        a.SendOlah("MULTICAST",porta);
     }
 }
