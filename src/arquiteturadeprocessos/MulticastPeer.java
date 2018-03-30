@@ -39,12 +39,11 @@ public class MulticastPeer extends Thread {
                 this.socket.receive(mensagemEntrada);
                 mensagem = mensagemEntrada.getData();
                 
-                //------------------------------ print debug
-                System.out.println(new String(mensagem));
-                
-                this.user.AdicionaNovoUsuario("COCO", "XIXI");
-                this.user.ExibeUsuariosDaRede();
-                
+                String mensagemParaTratar = new String(mensagem);
+                //SE NOVO USUÁRIO NA REDE
+                if(mensagemParaTratar.charAt(0)=='='){
+                    this.user.AdicionaUsuarioNaLista(mensagemParaTratar);
+                }
             } catch (IOException ex) {
                 Logger.getLogger(MulticastPeer.class.getName()).log(Level.SEVERE, null, ex);
             } 

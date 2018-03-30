@@ -5,9 +5,12 @@
  */
 package arquiteturadeprocessos;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
@@ -15,27 +18,36 @@ import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 /**
  Entidade que representa um usuário na rede
 */
 public class Usuario implements Serializable{
+    //Informações do Usuário
     private String nome_usuario;
     private int porta_usuario;
     private PrivateKey chave_privada;
     private PublicKey chave_publica;
+    
     //Chave dos outros (Nome de Usuário, Chave Pública)
-    private HashMap<String, String> listaDeChavesUsuarios;
+    private HashMap<String, PublicKey> listaDeChavesUsuarios;
+   
     //Lista de arquivos que possui
     private ArrayList<String> listaDeArquivos;
+    
     //Reputação dos outros
     private HashMap<String, String> listaDeReputacao;
     
+    //MulticastPeer
     public MulticastPeer conexao_multicast;
     
     public Usuario(String nome_usuario, int porta_usuario) {
@@ -44,7 +56,12 @@ public class Usuario implements Serializable{
             this.porta_usuario = porta_usuario;
             this.listaDeChavesUsuarios = new HashMap();
             CriaParDeChaves();
+            
+            listaDeChavesUsuarios = new HashMap<String, PublicKey>();
+            listaDeChavesUsuarios.put(this.nome_usuario,this.chave_publica);
+            listaDeChavesUsuarios.put("JohnJones",this.chave_publica);
             conexao_multicast = new MulticastPeer(this);
+            
         } catch (IOException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -68,31 +85,50 @@ public class Usuario implements Serializable{
         System.out.println("Chave Publica: " + this.chave_publica.toString());
         System.out.println("Chave Privada: " + this.chave_privada.toString());
     }
-    public void SendOlah(){
-  
-        //String mensagem = "{ChavePublica:" + this.chave_publica.toString() + ",NomeDeUsuario:"+this.nome_usuario+"}";
-        String mensagem = "Eu sou o " + this.nome_usuario;
-        
-        conexao_multicast.enviaMensagem(mensagem.getBytes());
     
+    public void SendOlah(){   
+        
+        byte[] chavePub = this.chave_publica.getEncoded();
+        String mensagem = "="+this.nome_usuario + ";" + Base64.getEncoder().encodeToString(chavePub);
+        System.out.println(Base64.getEncoder().encodeToString(chavePub));
+        conexao_multicast.enviaMensagem(mensagem.getBytes());
     }
     
-    public void AdicionaNovoUsuario(String NomeDeUsuario, String ChavePublica){
+    public void AdicionaUsuarioNaLista(String mensagemParaTratar){
         
+        HashMap<String, PublicKey> hashTemp = new HashMap<>();
+        String[] userTemp = mensagemParaTratar.split(Pattern.quote(";"));
         
-        System.out.println(NomeDeUsuario+","+ChavePublica);
+        KeyFactory factory = null;
+        try {
+            factory = KeyFactory.getInstance("RSA");
+        } catch (NoSuchAlgorithmException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        X509EncodedKeySpec encodedKeySpec = new X509EncodedKeySpec(userTemp[1].getBytes());
+        PublicKey p = null;
+        try {
+            p = factory.generatePublic(encodedKeySpec);
+        } catch (InvalidKeySpecException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
         
-        //Chave dos outros (Nome de Usuário, Chave Pública)
-        this.listaDeChavesUsuarios.put(NomeDeUsuario, ChavePublica);
-    
+//        PublicKey p = null;
+//        try {
+//            p = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(userTemp[1].getBytes()));
+//        } catch (NoSuchAlgorithmException ex) {
+//            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+//        } catch (InvalidKeySpecException ex) {
+//            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+//        }
+        hashTemp.put(userTemp[0], p);
+        System.out.println("RECEBEU: " + hashTemp.toString());
+         
     }
     
     public void ExibeUsuariosDaRede(){
         
         this.listaDeChavesUsuarios.forEach((k,v) -> System.out.println("key: "+k+" value:"+v));
         
-    }
-    
-    
-    
+    }    
 }

@@ -14,12 +14,19 @@ import java.util.Scanner;
 public class Main {
     public static void main(String[] args) {
         
+        //Lê o nome do usuário
         Scanner teclado = new Scanner(System.in);
         System.out.println("Digite um nome de usuário");
+        
+        //Lê a porta que será usada
         String nomeUser = teclado.nextLine();
         System.out.println("Digite uma porta para acessar o Sonin Bleinin Torrent");
         int porta = teclado.nextInt();
+        
+        //Cria um novo processo para o usuário
         Usuario a = new Usuario(nomeUser,porta);
+        
+        //Envia um "oi" para a rede, para os outros adicionarem ele
         a.SendOlah();
     }
 }
