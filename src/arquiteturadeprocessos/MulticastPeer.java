@@ -6,6 +6,8 @@ import sun.security.ec.ECKeyPairGenerator;
 import java.net.*;
 import java.io.*;
 import java.security.KeyPair;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Properties;
@@ -39,10 +41,15 @@ public class MulticastPeer extends Thread {
                 this.socket.receive(mensagemEntrada);
                 mensagem = mensagemEntrada.getData();
                 
-                String mensagemParaTratar = new String(mensagem);
                 //SE NOVO USUÁRIO NA REDE
-                if(mensagemParaTratar.charAt(0)=='='){
-                    this.user.AdicionaUsuarioNaLista(mensagemParaTratar);
+                if(mensagem[0]=='='){
+                    try {
+                        this.user.AdicionaUsuarioNaLista(new String(mensagem));
+                    } catch (NoSuchAlgorithmException ex) {
+                        Logger.getLogger(MulticastPeer.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (InvalidKeySpecException ex) {
+                        Logger.getLogger(MulticastPeer.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
             } catch (IOException ex) {
                 Logger.getLogger(MulticastPeer.class.getName()).log(Level.SEVERE, null, ex);

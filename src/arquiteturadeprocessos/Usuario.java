@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -18,7 +19,9 @@ import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.spec.EncodedKeySpec;
 import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -59,7 +62,6 @@ public class Usuario implements Serializable{
             
             listaDeChavesUsuarios = new HashMap<String, PublicKey>();
             listaDeChavesUsuarios.put(this.nome_usuario,this.chave_publica);
-            listaDeChavesUsuarios.put("JohnJones",this.chave_publica);
             conexao_multicast = new MulticastPeer(this);
             
         } catch (IOException ex) {
@@ -89,38 +91,22 @@ public class Usuario implements Serializable{
     public void SendOlah(){   
         
         byte[] chavePub = this.chave_publica.getEncoded();
-        String mensagem = "="+this.nome_usuario + ";" + Base64.getEncoder().encodeToString(chavePub);
-        System.out.println(Base64.getEncoder().encodeToString(chavePub));
+        //TESTA SE A CONVERSÃO INVERSA ESTÁ CERTA
+        System.out.println(this.listaDeChavesUsuarios);
+        String mensagem = "="+this.nome_usuario + ";" + Base64.getEncoder().encodeToString(chavePub)+";";
         conexao_multicast.enviaMensagem(mensagem.getBytes());
     }
     
-    public void AdicionaUsuarioNaLista(String mensagemParaTratar){
+    public void AdicionaUsuarioNaLista(String mensagemParaTratar) throws NoSuchAlgorithmException, InvalidKeySpecException{
         
         HashMap<String, PublicKey> hashTemp = new HashMap<>();
         String[] userTemp = mensagemParaTratar.split(Pattern.quote(";"));
+        //DECODIFICAÇÃO DA CHAVE PUBLICA
+        byte[] encodedKey = Base64.getDecoder().decode(userTemp[1]);
+        EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(encodedKey);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        PublicKey p = keyFactory.generatePublic(publicKeySpec);
         
-        KeyFactory factory = null;
-        try {
-            factory = KeyFactory.getInstance("RSA");
-        } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        X509EncodedKeySpec encodedKeySpec = new X509EncodedKeySpec(userTemp[1].getBytes());
-        PublicKey p = null;
-        try {
-            p = factory.generatePublic(encodedKeySpec);
-        } catch (InvalidKeySpecException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        
-//        PublicKey p = null;
-//        try {
-//            p = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(userTemp[1].getBytes()));
-//        } catch (NoSuchAlgorithmException ex) {
-//            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-//        } catch (InvalidKeySpecException ex) {
-//            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-//        }
         hashTemp.put(userTemp[0], p);
         System.out.println("RECEBEU: " + hashTemp.toString());
          
