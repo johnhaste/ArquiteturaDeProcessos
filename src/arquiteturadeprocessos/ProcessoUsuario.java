@@ -144,18 +144,18 @@ public class ProcessoUsuario implements Serializable{
     void RecebeArq(String arqParaTratar){
         String[] tratado = arqParaTratar.split("!");
         System.out.println(tratado[1]);
-        String decriptado = decriptografaPriv(tratado[1].getBytes());
+        String decriptado = decriptografaPub(tratado[1].getBytes(),this.listaDeChavesUsuarios.get(Integer.parseInt(tratado[0])));
         System.out.println(decriptado);
     }
     //MÉTODOS USADOS PARA CRIPTOGRAFAR E DECRIPTOGRAFAR MENSAGENS
     
-    public String criptografaPub(String texto, PublicKey chavePub) {
+    public String criptografaPriv(String texto) {
       byte[] cipherText = null;
       
       try {
         final Cipher cipher = Cipher.getInstance("RSA");
         // Criptografa o texto puro usando a chave Púlica
-        cipher.init(Cipher.ENCRYPT_MODE, chavePub);
+        cipher.init(Cipher.ENCRYPT_MODE, this.chave_privada);
         cipherText = cipher.doFinal(texto.getBytes());
       } catch (InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException e) {
         e.printStackTrace();
@@ -163,13 +163,13 @@ public class ProcessoUsuario implements Serializable{
       return new String(cipherText);
     }
 
-    public String decriptografaPriv(byte[] texto) {
+    public String decriptografaPub(byte[] texto, PublicKey pubKey) {
       byte[] dectyptedText = null;
       
       try {
         final Cipher cipher = Cipher.getInstance("RSA");
         // Decriptografa o texto puro usando a chave Privada
-        cipher.init(Cipher.DECRYPT_MODE,this.chave_privada);
+        cipher.init(Cipher.DECRYPT_MODE,pubKey);
         dectyptedText = cipher.doFinal(texto);   
       } catch (InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
         ex.printStackTrace();
@@ -190,13 +190,14 @@ public class ProcessoUsuario implements Serializable{
         this.listaDeChavesUsuarios.forEach((k,v) -> System.out.println("key: "+k+" value:"+v));
     }
     public void TestaCriptografia(){
-        String entrada = this.criptografaPub("Oi carinha", this.listaDeChavesUsuarios.get(this.porta_usuario));
-        System.out.println(this.listaDeChavesUsuarios.get(this.porta_usuario).toString());
-        entrada = "!"+entrada+"!";
-        String[] saida = entrada.split("!");
+        String entrada = this.criptografaPriv("Oi carinha");
+        System.out.println(entrada);
+        //System.out.println(this.listaDeChavesUsuarios.get(this.porta_usuario).toString());
+        entrada = "CRIP"+entrada+"CRIP";
+        String[] saida = entrada.split("CRIP");
         
         System.out.println("CRIP: "+saida[1]);
-        saida[1] = decriptografaPriv(saida[1].getBytes());
+        saida[1] = decriptografaPub(saida[1].getBytes(),this.chave_publica);
         System.out.println("DECRIP: "+saida[1]);
     }
 }
