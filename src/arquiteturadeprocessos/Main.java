@@ -28,5 +28,14 @@ public class Main {
         
         //Envia um "oi" para a rede, para os outros adicionarem ele
         a.SendOlah("MULTICAST",porta);
+        
+        for(int i = 0;i<1000000;i++){}
+        
+        a.TestaCriptografia();
+        if(a.getNome_usuario().equals("Gui")){
+            System.out.println("PEDINDO...");
+            a.PedeArquivo("Senhor dos Aneis.mp4");
+        }
+        
     }
 }

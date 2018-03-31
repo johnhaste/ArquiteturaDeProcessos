@@ -45,7 +45,7 @@ public class UDPServer extends Thread {
                 DatagramPacket mensagemResposta = null;
                 if (mensagem[0] == '=') {
                     try {
-                        user.AdicionaUsuarioNaLista(new String(mensagem));
+                        user.AdicionaUsuarioNaLista(new String(mensagem),"UNICAST");
                         //SE CONSEGUIR ADICIONAR, ENVIA A RESPOSTA
                         bufferSaida = "Obrigado, lhe adicionei".getBytes();
                         mensagemResposta = new DatagramPacket(
@@ -56,6 +56,16 @@ public class UDPServer extends Thread {
                     } catch (NoSuchAlgorithmException | InvalidKeySpecException ex) {
                         Logger.getLogger(UDPServer.class.getName()).log(Level.SEVERE, null, ex);
                     }
+                }
+                if (mensagem[0] == '!') {
+                    user.RecebeArq(new String(mensagem));
+                    //SE CONSEGUIR ADICIONAR, ENVIA A RESPOSTA
+                    bufferSaida = "Recebi o arquivo".getBytes();
+                    mensagemResposta = new DatagramPacket(
+                            bufferSaida,
+                            bufferSaida.length,
+                            mensagemEntrada.getAddress(),
+                            mensagemEntrada.getPort());
                 }
 
                 aSocket.send(mensagemResposta);

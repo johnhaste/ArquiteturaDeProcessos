@@ -1,17 +1,11 @@
 package arquiteturadeprocessos;
 
 import arquiteturadeprocessos.ProcessoUsuario;
-import sun.security.ec.ECKeyPairGenerator;
 
 import java.net.*;
 import java.io.*;
-import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Properties;
-import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -23,8 +17,8 @@ public class MulticastPeer extends Thread {
 
     MulticastPeer(ProcessoUsuario user) throws IOException {
 
-        this.user = user;
-        this.group = InetAddress.getByName("228.5.6.7");
+        this.user = user;                //"228.5.6.7"
+        this.group = InetAddress.getByName("192.168.1.1");
         this.socket = new MulticastSocket(6789);
         this.socket.joinGroup(group);
         this.start();
@@ -44,10 +38,12 @@ public class MulticastPeer extends Thread {
                 //SE NOVO USUÁRIO NA REDE
                 if(mensagem[0]=='='){
                     try {
-                        this.user.AdicionaUsuarioNaLista(new String(mensagem));
+                        this.user.AdicionaUsuarioNaLista(new String(mensagem),"MULTICAST");
                     } catch (NoSuchAlgorithmException | InvalidKeySpecException ex) {
                         Logger.getLogger(MulticastPeer.class.getName()).log(Level.SEVERE, null, ex);
                     }
+                }else if(mensagem[0]=='?'){
+                    this.user.VerificaArq(new String(mensagem)); 
                 }
             } catch (IOException ex) {
                 Logger.getLogger(MulticastPeer.class.getName()).log(Level.SEVERE, null, ex);

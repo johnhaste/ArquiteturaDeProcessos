@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -30,6 +31,10 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 
 /**
  Entidade que representa um usuário na rede
@@ -55,11 +60,11 @@ public class ProcessoUsuario implements Serializable{
     public ProcessoUsuario(String nome_usuario, int porta_usuario) {
         try {
             this.nome_usuario = nome_usuario;
-            this.porta_usuario = new Integer(porta_usuario);
-            this.enderecoIP = "192.168.1.3"; //COLOCAR O IP DA REDE ONDE O APP RODARÁ
+            this.porta_usuario = porta_usuario;
+            this.enderecoIP = "192.168.1.6"; //COLOCAR O IP DA REDE ONDE O APP RODARÁ
             this.listaDeChavesUsuarios = new HashMap();
             CriaParDeChaves();
-            
+            listaDeArquivos = new ArrayList<>();
             listaDeChavesUsuarios = new HashMap<>();
             listaDeChavesUsuarios.put(this.porta_usuario,this.chave_publica);
             conexao_multicast = new MulticastPeer(this);
@@ -100,8 +105,8 @@ public class ProcessoUsuario implements Serializable{
     }
     
     //O USUÁRIO QUE RECEBE UM NOVO 'Olah' DO MULTICAST, ADICIONA O USUÁRIO QUE ENVIOU A MENSAGEM SE NÃO FOR ELE MESMO
-    public void AdicionaUsuarioNaLista(String mensagemParaTratar) throws NoSuchAlgorithmException, InvalidKeySpecException{
-        HashMap<Integer, PublicKey> hashTemp = new HashMap<>();
+    public void AdicionaUsuarioNaLista(String mensagemParaTratar, String metodo) throws NoSuchAlgorithmException, InvalidKeySpecException{
+
         String[] userTemp = mensagemParaTratar.split(Pattern.quote(";"));
         //DECODIFICAÇÃO DA CHAVE PUBLICA
         byte[] encodedKey = Base64.getDecoder().decode(userTemp[1]);
@@ -109,19 +114,68 @@ public class ProcessoUsuario implements Serializable{
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         PublicKey p = keyFactory.generatePublic(publicKeySpec);
         Integer portaAux = Integer.parseInt(userTemp[0].replace("=", ""));
-        hashTemp.put(portaAux, p);
-        System.out.println("RECEBEU: " + hashTemp.toString());
-        
         if(!this.listaDeChavesUsuarios.containsKey(portaAux)){
+            System.out.println("ADICIONADO O USUÁRIO DA PORTA: " + portaAux + " COM A CHAVE PUB: " + p.toString());
             this.listaDeChavesUsuarios.put(portaAux,p);
-            System.out.println("ADICIONADO O USUÁRIO DA PORTA:" + portaAux + "CONTENDO A CHAVE PUB: " + p.toString());
-            SendOlah("UNICAST", portaAux);
+            if(metodo.equals("MULTICAST"))
+                SendOlah("UNICAST", portaAux);
         }else if(portaAux.equals(this.porta_usuario)){
-            System.out.println("NÃO É POSSÍVEL ADICIONAR A SI MESMO.");
+            System.out.println("VOCÊ ENTROU NA REDE COM SUCESSO");
         }else{
             System.out.println("USUÁRIO JÁ EXISTENTE NA SUA LISTA LHE ENVIOU UM OLAH");
         }
-    }    
+    }        
+    public void PedeArquivo(String nomeArq){
+        String mensagem = "?"+this.porta_usuario+"?"+nomeArq;
+        conexao_multicast.enviaMensagem(mensagem.getBytes());
+    }
+    
+    void VerificaArq(String arq) {
+        String[] aux = arq.split(Pattern.quote("?"));
+        int porta = Integer.parseInt(aux[1]);
+        if(porta == this.porta_usuario)
+            return;
+        System.out.println("O USUÁRIO "+porta+" ESTÁ PERGUNTANDO SE VOCÊ TEM O ARQUIVO "+aux[2]);
+        if(!this.listaDeArquivos.contains(arq)){
+            //TODO: CRIPTOGRAFAR E ENVIAR ARQUIVO
+        }
+    }
+    
+    void RecebeArq(String arqParaTratar){
+        String[] tratado = arqParaTratar.split("!");
+        System.out.println(tratado[1]);
+        String decriptado = decriptografaPriv(tratado[1].getBytes());
+        System.out.println(decriptado);
+    }
+    //MÉTODOS USADOS PARA CRIPTOGRAFAR E DECRIPTOGRAFAR MENSAGENS
+    
+    public String criptografaPub(String texto, PublicKey chavePub) {
+      byte[] cipherText = null;
+      
+      try {
+        final Cipher cipher = Cipher.getInstance("RSA");
+        // Criptografa o texto puro usando a chave Púlica
+        cipher.init(Cipher.ENCRYPT_MODE, chavePub);
+        cipherText = cipher.doFinal(texto.getBytes());
+      } catch (InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException e) {
+        e.printStackTrace();
+      }  
+      return new String(cipherText);
+    }
+
+    public String decriptografaPriv(byte[] texto) {
+      byte[] dectyptedText = null;
+      
+      try {
+        final Cipher cipher = Cipher.getInstance("RSA");
+        // Decriptografa o texto puro usando a chave Privada
+        cipher.init(Cipher.DECRYPT_MODE,this.chave_privada);
+        dectyptedText = cipher.doFinal(texto);   
+      } catch (InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
+        ex.printStackTrace();
+      }
+      return new String(dectyptedText);
+    }
     
     public String getNome_usuario() {
         return nome_usuario;
@@ -134,5 +188,15 @@ public class ProcessoUsuario implements Serializable{
     public void ExibeUsuariosDaRede(){
         
         this.listaDeChavesUsuarios.forEach((k,v) -> System.out.println("key: "+k+" value:"+v));
-    }    
+    }
+    public void TestaCriptografia(){
+        String entrada = this.criptografaPub("Oi carinha", this.listaDeChavesUsuarios.get(this.porta_usuario));
+        System.out.println(this.listaDeChavesUsuarios.get(this.porta_usuario).toString());
+        entrada = "!"+entrada+"!";
+        String[] saida = entrada.split("!");
+        
+        System.out.println("CRIP: "+saida[1]);
+        saida[1] = decriptografaPriv(saida[1].getBytes());
+        System.out.println("DECRIP: "+saida[1]);
+    }
 }
