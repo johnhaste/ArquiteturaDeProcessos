@@ -79,7 +79,7 @@ public class ProcessoUsuario implements Serializable{
             SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
             random.setSeed(System.currentTimeMillis());
-            keyGen.initialize(1024, random);
+            keyGen.initialize(1024);
             KeyPair pares = keyGen.generateKeyPair();
             this.chave_privada = pares.getPrivate();
             this.chave_publica = pares.getPublic();
@@ -144,37 +144,35 @@ public class ProcessoUsuario implements Serializable{
     void RecebeArq(String arqParaTratar){
         String[] tratado = arqParaTratar.split("!");
         System.out.println(tratado[1]);
-        String decriptado = decriptografaPub(tratado[1].getBytes(),this.listaDeChavesUsuarios.get(Integer.parseInt(tratado[0])));
+        String decriptado = decriptografaPub(tratado[1],this.listaDeChavesUsuarios.get(Integer.parseInt(tratado[0])));
         System.out.println(decriptado);
     }
     //MÉTODOS USADOS PARA CRIPTOGRAFAR E DECRIPTOGRAFAR MENSAGENS
     
     public String criptografaPriv(String texto) {
-      byte[] cipherText = null;
-      
       try {
-        final Cipher cipher = Cipher.getInstance("RSA");
-        // Criptografa o texto puro usando a chave Púlica
+        final Cipher cipher;
+        cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.ENCRYPT_MODE, this.chave_privada);
-        cipherText = cipher.doFinal(texto.getBytes());
+        byte[] cipherText = cipherText = cipher.doFinal(texto.getBytes());
+        return new String(Base64.getEncoder().encodeToString(cipherText));
       } catch (InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException e) {
         e.printStackTrace();
-      }  
-      return new String(cipherText);
+      }
+      return null;
     }
 
-    public String decriptografaPub(byte[] texto, PublicKey pubKey) {
-      byte[] dectyptedText = null;
-      
+    public String decriptografaPub(String texto, PublicKey pubKey) {
       try {
-        final Cipher cipher = Cipher.getInstance("RSA");
-        // Decriptografa o texto puro usando a chave Privada
-        cipher.init(Cipher.DECRYPT_MODE,pubKey);
-        dectyptedText = cipher.doFinal(texto);   
+        final Cipher cipher;
+        cipher = Cipher.getInstance("RSA");
+        cipher.init(Cipher.DECRYPT_MODE, pubKey);
+        byte[] decryptedText = cipher.doFinal(Base64.getDecoder().decode(texto));
+        return new String(decryptedText);
       } catch (InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
         ex.printStackTrace();
       }
-      return new String(dectyptedText);
+      return null;
     }
     
     public String getNome_usuario() {
@@ -190,14 +188,19 @@ public class ProcessoUsuario implements Serializable{
         this.listaDeChavesUsuarios.forEach((k,v) -> System.out.println("key: "+k+" value:"+v));
     }
     public void TestaCriptografia(){
+
         String entrada = this.criptografaPriv("Oi carinha");
-        System.out.println(entrada);
+        System.out.println("CRIPTOGRAFADO TEXTO:"+entrada);
+        System.out.println("CRIPTOGRAFADO BYTES:"+entrada.getBytes());
         //System.out.println(this.listaDeChavesUsuarios.get(this.porta_usuario).toString());
         entrada = "CRIP"+entrada+"CRIP";
         String[] saida = entrada.split("CRIP");
-        
-        System.out.println("CRIP: "+saida[1]);
-        saida[1] = decriptografaPub(saida[1].getBytes(),this.chave_publica);
-        System.out.println("DECRIP: "+saida[1]);
+        for(String s:saida){
+            System.out.println("POSIÇÃO>>>");
+            System.out.println(s);
+        }
+        System.out.println("BYTES: " + saida[1].getBytes());
+        String decrip = decriptografaPub(saida[1], this.chave_publica);
+        System.out.println("DECRIP: "+ decrip);
     }
 }

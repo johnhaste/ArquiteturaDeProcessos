@@ -31,7 +31,7 @@ public class Main {
         
         for(int i = 0;i<1000000;i++){}
         
-        a.TestaCriptografia();
+        //a.TestaCriptografia();
         if(a.getNome_usuario().equals("Gui")){
             System.out.println("PEDINDO...");
             a.PedeArquivo("Senhor dos Aneis.mp4");
