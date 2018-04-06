@@ -25,6 +25,7 @@ public class UDPServer extends Thread {
     ProcessoUsuario user;
     boolean escutando;
     
+    //Inicializa variáveis
     public UDPServer(ProcessoUsuario user) {
         
         this.user = user;
@@ -44,6 +45,7 @@ public class UDPServer extends Thread {
         escutaPorta();
     }
     
+    //Escuta pela porta do usuário
     public void escutaPorta() {
         byte[] mensagem;
         try {
@@ -55,6 +57,9 @@ public class UDPServer extends Thread {
                 byte[] bufferSaida = new byte[4096];
                 DatagramPacket mensagemResposta = null;
 
+                //Analísa o início da mensagem para saber o que fazer com a mensagem recebida
+                
+                //Adiciona um usuário novo na lista (SendOlah)
                 if (mensagem[0] == '=' && this.escutando) {
                     try {
                         user.AdicionaUsuarioNaLista(new String(mensagem), "UNICAST");
@@ -71,6 +76,8 @@ public class UDPServer extends Thread {
                         Logger.getLogger(UDPServer.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
+                
+                //Confirma o recebimento da confirmação de outro ter o arquivo e imprime uma mensagem para aguardo
                 if (mensagem[0] == '!' && this.escutando) {
                     //SE CONSEGUIR ADICIONAR, ENVIA A RESPOSTA
                     bufferSaida = "Vou analisar e lhe solicito".getBytes();
@@ -83,6 +90,8 @@ public class UDPServer extends Thread {
                     aSocket.send(mensagemResposta);
                     user.RecebeUsuarioComArquivo(new String(mensagem));
                 }
+                
+                //Analisa se alguém pediu o arquivo
                 if (mensagem[0] == '$') {
                     String arquivo = new String(mensagem);
                     bufferSaida = "Se prepara que agora é hora de receber meu arquivão!!!".getBytes();
@@ -92,11 +101,12 @@ public class UDPServer extends Thread {
                             mensagemEntrada.getAddress(),
                             mensagemEntrada.getPort());
                     aSocket.send(mensagemResposta);
-                    this.user.SendArquivo(arquivo, porta);
+                    this.user.SendArquivo(arquivo);
                 }
+                
+                //Recebe o arquivo
                 if (mensagem[0] == '@' && escutando) {
-                    String arquivo[] = mensagem.toString().split("@");
-                    System.out.println(arquivo[1]);
+                    String arquivo = new String(mensagem);
                     bufferSaida = "RECEBI SEU ARQUIVÃO".getBytes();
                     mensagemResposta = new DatagramPacket(
                             bufferSaida,
@@ -104,6 +114,7 @@ public class UDPServer extends Thread {
                             mensagemEntrada.getAddress(),
                             mensagemEntrada.getPort());
                     aSocket.send(mensagemResposta);
+                    this.user.RecebeArq(arquivo);
                 }
                 
             }

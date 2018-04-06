@@ -13,6 +13,7 @@ import java.util.Scanner;
  * @author John Haste
  */
 public class Main {
+    
     public static void main(String[] args) {
         
         //Lê o nome do usuário
@@ -29,12 +30,8 @@ public class Main {
         
         //Envia um "oi" para a rede, para os outros adicionarem ele
         a.SendOlah("MULTICAST",porta);
-        try {
-            Thread.sleep(5500);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
         
+        //Começa a rodar a interação com usuário
         while(true){
             String nomeArq;
             teclado = new Scanner(System.in);
@@ -51,6 +48,8 @@ public class Main {
             else
                 System.out.println("VOCÊ ESTÁ SOZINHO NESSE ROLÊ.");
         }
+        
+        //Fecha a conexão
         a.conexao_multicast.interrupt();
     }
 }

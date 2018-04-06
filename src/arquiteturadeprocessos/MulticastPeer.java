@@ -15,8 +15,9 @@ public class MulticastPeer extends Thread {
     private InetAddress group = null;
     private ProcessoUsuario user;
 
+    
+    //Inicializa o Multicast
     MulticastPeer(ProcessoUsuario user) throws IOException {
-
         this.user = user;                
         this.group = InetAddress.getByName("228.5.6.7"); // endereço final 7 parou de funcionar
         this.socket = new MulticastSocket(6789);
@@ -51,6 +52,7 @@ public class MulticastPeer extends Thread {
         }
     }
     
+    //Envia mensagem ao multicast pela porta inicializada no construtor
     public void enviaMensagem(byte[] mensagem) {
 
         try {

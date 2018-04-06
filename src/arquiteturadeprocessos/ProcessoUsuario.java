@@ -5,34 +5,26 @@
  */
 package arquiteturadeprocessos;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.net.InetAddress;
-import java.net.SocketException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidKeyException;
-import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.spec.EncodedKeySpec;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -70,6 +62,7 @@ public class ProcessoUsuario implements Serializable{
     //Path onde os arquivos estarão disponíveis para compartilhamento
     private File file;
     
+    //Inicializa as variáveis do usuário
     public ProcessoUsuario(String nome_usuario, int porta_usuario) {
         try {
             this.nome_usuario = nome_usuario;
@@ -91,6 +84,8 @@ public class ProcessoUsuario implements Serializable{
             Logger.getLogger(ProcessoUsuario.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+    
+    //Cria uma chave pública e uma privada
     private void CriaParDeChaves(){
         try {
             SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
@@ -105,12 +100,14 @@ public class ProcessoUsuario implements Serializable{
         }
     }
     
+    //Debug: Imprime detalhes do usuário
     public void ImprimeUsuario(){
         System.out.println("Nome: " + this.nome_usuario +" Porta: " + this.porta_usuario);
         System.out.println("Chave Publica: " + this.chave_publica.toString());
         System.out.println("Chave Privada: " + this.chave_privada.toString());
     }
     
+    //Envia mensagens por MULTICAST ou UNICAST de acordo com o parâmetro
     public void SendOlah(String metodo, int porta){
         byte[] chavePub = this.chave_publica.getEncoded();
         String mensagem = "="+ this.porta_usuario.toString() + ";" + Base64.getEncoder().encodeToString(chavePub)+";";
@@ -157,7 +154,9 @@ public class ProcessoUsuario implements Serializable{
         }else{
             System.out.println("USUÁRIO JÁ EXISTENTE NA SUA LISTA LHE ENVIOU UM OLAH");
         }
-    }        
+    }   
+    
+    //Solicitação de um arquivo por multicast, escutando por unicast
     public void PedeArquivo(String nomeArq){
         this.arqSolicitado = nomeArq;
         String mensagem = "?"+this.porta_usuario+"?"+nomeArq+"?";
@@ -175,12 +174,15 @@ public class ProcessoUsuario implements Serializable{
             e.printStackTrace();
         }
         this.conexao_unicast_server.escutando = false;
+        
+        //Se alguém tiver o arquivo solicitado, inicia a o pedido para o escolhido
         if(!this.listaUsersArquivo.isEmpty())
             this.solicitaEnvio();
         else
             System.out.println("A BUSCA NÃO RETORNOU NENHUM RESULTADO");
     }
     
+    //Verifica localmente se tem o arquivo solicitado
     void VerificaArq(String arq) {
         String[] aux = arq.split(Pattern.quote("?"));
         int porta = Integer.parseInt(aux[1]);
@@ -199,6 +201,8 @@ public class ProcessoUsuario implements Serializable{
         }
         
     }
+    
+    //Preenche a lista com usuários que possuem o arquivo
     void RecebeUsuarioComArquivo(String strParaTratar){
         if(this.pedindoArquivo){
             String[] tratado = strParaTratar.split("!");
@@ -211,7 +215,6 @@ public class ProcessoUsuario implements Serializable{
     }
     
     //MÉTODOS USADOS PARA CRIPTOGRAFAR E DECRIPTOGRAFAR MENSAGENS
-    
     public String criptografaPriv(String texto) {
       try {
         final Cipher cipher;
@@ -224,7 +227,6 @@ public class ProcessoUsuario implements Serializable{
       }
       return null;
     }
-
     public String decriptografaPub(String texto, PublicKey pubKey) {
       try {
         final Cipher cipher;
@@ -253,6 +255,8 @@ public class ProcessoUsuario implements Serializable{
     public boolean TemMaisUsuarios(){
         return this.listaDeChavesUsuarios.size() > 1;
     }
+    
+    //Analisa qual usuário tem a melhor reputação para solicitar o arquivo em unicast
     void solicitaEnvio() {
         Integer melhorPorta = null;
         Integer melhorReputacao = -99;
@@ -265,7 +269,7 @@ public class ProcessoUsuario implements Serializable{
         UDPClient conexao_unicast = new UDPClient(this.enderecoIP, melhorPorta);
         this.listaUsersArquivo.clear();
         this.pedindoArquivo = false;
-        if (conexao_unicast.enviaMensagem(("$" + this.arqSolicitado + "$").getBytes())) {
+        if (conexao_unicast.enviaMensagem(("$"+this.porta_usuario+"$" + this.arqSolicitado + "$").getBytes())) {
             this.conexao_unicast_server.escutando = true;
             System.out.println("recebendo arquivo...");
             try {
@@ -273,9 +277,15 @@ public class ProcessoUsuario implements Serializable{
             } catch (Exception e) {
                 e.printStackTrace();
             }
+            this.conexao_unicast_server.escutando = false;
+            if(!this.listaDeArquivos.contains(this.arqSolicitado)){
+                //TODO: Decrementar a reputação do dono da porta "melhorPorta";
+            }
+            this.arqSolicitado = null;
         }
     }
     
+    //Define qual pasta cada usuário terá para armazenar seus arquivos
     void listaArquivos(){
         if(this.porta_usuario < 4000)
             this.file = new File(".\\SHARE\\");
@@ -292,8 +302,11 @@ public class ProcessoUsuario implements Serializable{
         }
     }
     
-    public void SendArquivo(String arquivo, int porta) {
-        arquivo = arquivo.split(Pattern.quote("$"))[1];
+    //Envia o arquivo por unicast
+    public void SendArquivo(String arquivo) {
+        String[] s = arquivo.split(Pattern.quote("$"));
+        int porta = Integer.parseInt(s[1]);
+        arquivo = s[2];
         if(this.listaDeArquivos.contains(arquivo)){
             try {
                 Thread.sleep(100);
@@ -305,7 +318,8 @@ public class ProcessoUsuario implements Serializable{
             Path path = Paths.get(file.getName()+"\\"+arquivo);
             try {
                 byte[] arqData = Files.readAllBytes(path);
-                conexao_unicast.enviaMensagem(("@"+arqData.toString()).getBytes());
+                
+                conexao_unicast.enviaMensagem(("@"+this.porta_usuario+"@"+criptografaPriv(new String(arqData))+"@").getBytes());
 
             } catch (IOException ex) {
                 Logger.getLogger(ProcessoUsuario.class.getName()).log(Level.SEVERE, null, ex);
@@ -317,10 +331,15 @@ public class ProcessoUsuario implements Serializable{
         }
     }
     
+    //Recebe o arquivo solicitado, criando um localmente em sua pasta adequada
     void RecebeArq(String arqParaTratar){
-        String[] tratado = arqParaTratar.split("!");
-        System.out.println("Qualé a musica"+tratado[1]);
-        String decriptado = decriptografaPub(tratado[1],this.listaDeChavesUsuarios.get(Integer.parseInt(tratado[0])));
-        System.out.println(decriptado);
+        String[] tratado = arqParaTratar.split("@");
+        int porta = Integer.parseInt(tratado[1]); // usuário que mandou o arquivo corretamente.
+        System.out.println(decriptografaPub(tratado[2],this.listaDeChavesUsuarios.get(porta)));
+        //TODO: incrementar na lista de reputação o usuário da porta
+        //salvar o conteúdo de "decriptografaPub(tratado[2],this.listaDeChavesUsuarios.get(porta))"
+        //no arquivo com o nome contido em this.arqSolicitado.
+        //Adicionar a lista de arquivos desse usuário o arquivo que foi salvo.
+
     }
 }

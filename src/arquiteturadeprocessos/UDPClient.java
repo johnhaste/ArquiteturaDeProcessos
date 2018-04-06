@@ -30,6 +30,7 @@ public class UDPClient {
         this.enderecoIP = enderecoIP; 
     }
 
+    //Envia mensagens por unicast
     public boolean enviaMensagem(byte[] mensagem) {
         try {
             aSocket = new DatagramSocket();
