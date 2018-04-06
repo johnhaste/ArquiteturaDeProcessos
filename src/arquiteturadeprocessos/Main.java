@@ -29,7 +29,6 @@ public class Main {
         
         //Envia um "oi" para a rede, para os outros adicionarem ele
         a.SendOlah("MULTICAST",porta);
-
         try {
             Thread.sleep(5500);
         } catch (Exception e) {

@@ -30,7 +30,7 @@ public class UDPClient {
         this.enderecoIP = enderecoIP; 
     }
 
-    public void enviaMensagem(byte[] mensagem) {
+    public boolean enviaMensagem(byte[] mensagem) {
         try {
             aSocket = new DatagramSocket();
             InetAddress aHost = InetAddress.getByName(enderecoIP);
@@ -40,11 +40,15 @@ public class UDPClient {
             byte[] buffer = new byte[4096];
             DatagramPacket reply = new DatagramPacket(buffer, buffer.length);
             aSocket.receive(reply);
-            System.out.println("Reply: " + new String(reply.getData())); 
+            if(new String(reply.getData()).contains("Se prepara que agora é hora de receber meu arquivão!!!"))
+                return true;
+            else
+                System.out.println("Reply: " + new String(reply.getData()));
         } catch (SocketException e) {
             System.out.println("Socket: " + e.getMessage());
         } catch (IOException e) {
             System.out.println("IO: " + e.getMessage());
         }
+        return false;
     }
 }

@@ -12,6 +12,9 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyFactory;
@@ -64,12 +67,14 @@ public class ProcessoUsuario implements Serializable{
     private ArrayList<Integer> listaUsersArquivo;
     //Ultimo arquivo pedido pelo usuario
     private String arqSolicitado;
+    //Path onde os arquivos estarão disponíveis para compartilhamento
+    private File file;
     
     public ProcessoUsuario(String nome_usuario, int porta_usuario) {
         try {
             this.nome_usuario = nome_usuario;
             this.porta_usuario = porta_usuario;
-            this.enderecoIP = "192.168.1.4"; //COLOCAR O IP DA REDE ONDE O APP RODARÁ
+            this.enderecoIP = "10.10.33.194"; //COLOCAR O IP DA REDE ONDE O APP RODARÁ
             this.listaDeChavesUsuarios = new HashMap();
             this.CriaParDeChaves();
             this.listaDeArquivos = new ArrayList<>();
@@ -78,7 +83,9 @@ public class ProcessoUsuario implements Serializable{
             this.conexao_multicast = new MulticastPeer(this);
             this.conexao_unicast_server = new UDPServer(this);
             this.listaArquivos();
+            this.listaUsersArquivo = new ArrayList<Integer>();
             this.pedindoArquivo = false;
+            this.listaDeReputacao = new HashMap<>();
             
         } catch (IOException ex) {
             Logger.getLogger(ProcessoUsuario.class.getName()).log(Level.SEVERE, null, ex);
@@ -107,10 +114,22 @@ public class ProcessoUsuario implements Serializable{
     public void SendOlah(String metodo, int porta){
         byte[] chavePub = this.chave_publica.getEncoded();
         String mensagem = "="+ this.porta_usuario.toString() + ";" + Base64.getEncoder().encodeToString(chavePub)+";";
-        if(metodo.equals("MULTICAST")){ 
-            this.conexao_unicast_server.start();
-            for(int i = 0 ; i< 1000000 ; i++){}
+        if(metodo.equals("MULTICAST")){
+            
+            this.conexao_unicast_server.escutando = true;
+            try {
+                Thread.sleep(100);
+            }catch (Exception e) {
+                e.printStackTrace();
+            }
             conexao_multicast.enviaMensagem(mensagem.getBytes());
+            try {
+                Thread.sleep(3000);
+            }catch (Exception e) {
+                e.printStackTrace();
+            }
+            this.conexao_unicast_server.escutando = false;
+            
         }else if(metodo.equals("UNICAST")){
             UDPClient conexao_unicast = new UDPClient(this.enderecoIP, porta);
             conexao_unicast.enviaMensagem(mensagem.getBytes());
@@ -130,7 +149,7 @@ public class ProcessoUsuario implements Serializable{
         if(!this.listaDeChavesUsuarios.containsKey(portaAux)){
             System.out.println("ADICIONADO O USUÁRIO DA PORTA: " + portaAux + " COM A CHAVE PUB: " + p.toString());
             this.listaDeChavesUsuarios.put(portaAux,p);
-            //this.listaDeReputacao.put(portaAux, 0);
+            this.listaDeReputacao.put(portaAux, 0);
             if(metodo.equals("MULTICAST"))
                 SendOlah("UNICAST", portaAux);
         }else if(portaAux.equals(this.porta_usuario)){
@@ -141,12 +160,25 @@ public class ProcessoUsuario implements Serializable{
     }        
     public void PedeArquivo(String nomeArq){
         this.arqSolicitado = nomeArq;
-        String mensagem = "?"+this.porta_usuario+"?"+nomeArq;
+        String mensagem = "?"+this.porta_usuario+"?"+nomeArq+"?";
         this.pedindoArquivo = true;
-        this.conexao_unicast_server.interrupt();
-        this.conexao_unicast_server.start();
-        for(int i = 0 ; i< 1000000 ; i++){}
+        this.conexao_unicast_server.escutando = true;
+        try {
+            Thread.sleep(100);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         conexao_multicast.enviaMensagem(mensagem.getBytes());
+        try {
+            Thread.sleep(3000);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        this.conexao_unicast_server.escutando = false;
+        if(!this.listaUsersArquivo.isEmpty())
+            this.solicitaEnvio();
+        else
+            System.out.println("A BUSCA NÃO RETORNOU NENHUM RESULTADO");
     }
     
     void VerificaArq(String arq) {
@@ -154,27 +186,30 @@ public class ProcessoUsuario implements Serializable{
         int porta = Integer.parseInt(aux[1]);
         if(porta == this.porta_usuario)
             return;
-        System.out.println("O USUÁRIO "+porta+" ESTÁ PERGUNTANDO SE VOCÊ TEM O ARQUIVO "+aux[2]);
-        if(this.listaDeArquivos.contains(arq)){
-            UDPClient conexao_unicast = new UDPClient(this.enderecoIP, porta);
-            conexao_unicast.enviaMensagem(("!#"+this.porta_usuario+"!Eu tenho o arquivo!").getBytes());
+        System.out.println("O USUÁRIO " + porta + " ESTÁ PERGUNTANDO SE VOCÊ TEM O ARQUIVO " + aux[2]);
+        for (String s : file.list()) {
+            System.out.println(s + " == " + aux[2]);
+            if (s.equals(aux[2])) {
+                System.out.println("TENHO");
+                UDPClient conexao_unicast = new UDPClient(this.enderecoIP, porta);
+                System.out.println("!#" + this.porta_usuario + "!Eu tenho o arquivo!");
+                conexao_unicast.enviaMensagem(("!#" + this.porta_usuario + "!Eu tenho o arquivo!").getBytes());
+                return;
+            }
         }
+        
     }
     void RecebeUsuarioComArquivo(String strParaTratar){
         if(this.pedindoArquivo){
             String[] tratado = strParaTratar.split("!");
             if(tratado[2].equals("Eu tenho o arquivo")){
                 //Adiciona um usuário com o arquivo desejado.
-                this.listaUsersArquivo.add(Integer.parseInt(tratado[1].replace("#", "")));
+                int i = Integer.parseInt(tratado[1].replace("#", ""));
+                this.listaUsersArquivo.add(i);
             }
         }
     }
-    void RecebeArq(String arqParaTratar){
-        String[] tratado = arqParaTratar.split("!");
-        System.out.println(tratado[1]);
-        String decriptado = decriptografaPub(tratado[1],this.listaDeChavesUsuarios.get(Integer.parseInt(tratado[0])));
-        System.out.println(decriptado);
-    }
+    
     //MÉTODOS USADOS PARA CRIPTOGRAFAR E DECRIPTOGRAFAR MENSAGENS
     
     public String criptografaPriv(String texto) {
@@ -219,34 +254,37 @@ public class ProcessoUsuario implements Serializable{
         return this.listaDeChavesUsuarios.size() > 1;
     }
     void solicitaEnvio() {
-        if(this.listaUsersArquivo.isEmpty()){
-            System.out.println("A busca não retornou nenhum usuário com o arquivo");
-            this.pedindoArquivo = false;
-            return;
+        Integer melhorPorta = null;
+        Integer melhorReputacao = -99;
+        for (Integer i : this.listaUsersArquivo) {
+            System.out.println(listaDeReputacao.get(i));
+            if (this.listaDeReputacao.get(i) > melhorReputacao) {
+                melhorPorta = i;
+            }
         }
-        else{
-            Integer melhorPorta = null;
-            Integer melhorReputacao = -99;
-            for(Integer i : this.listaUsersArquivo){
-                if(this.listaDeReputacao.get(i) > melhorReputacao){
-                    melhorPorta = i;
-                }
+        UDPClient conexao_unicast = new UDPClient(this.enderecoIP, melhorPorta);
+        this.listaUsersArquivo.clear();
+        this.pedindoArquivo = false;
+        if (conexao_unicast.enviaMensagem(("$" + this.arqSolicitado + "$").getBytes())) {
+            this.conexao_unicast_server.escutando = true;
+            System.out.println("recebendo arquivo...");
+            try {
+                Thread.sleep(5000);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            if(melhorPorta != null){
-                UDPClient conexao_unicast = new UDPClient(this.enderecoIP, melhorPorta);
-                this.conexao_unicast_server.start();
-                conexao_unicast.enviaMensagem(("$"+this.arqSolicitado+"$").getBytes()); 
-            }
-            else{
-                System.out.println("Não foi encontrado um bom peer para lhe enviar o arquivo");
-            }
-            
         }
     }
     
     void listaArquivos(){
-        File file = new File(".\\SHARE\\");
-        String[] arquivos = file.list();
+        if(this.porta_usuario < 4000)
+            this.file = new File(".\\SHARE\\");
+        else if(this.porta_usuario < 5000)
+            this.file = new File(".\\SHARE2\\");
+        else
+            this.file = new File(".\\SHARE3\\");
+        
+        String[] arquivos = this.file.list();
         System.out.println("VOCÊ POSSUI OS SEGUINTES ARQUIVOS PARA COMPARTILHAR:");
         for(String s:arquivos){
             System.out.println(s);
@@ -254,13 +292,35 @@ public class ProcessoUsuario implements Serializable{
         }
     }
     
-    String SendArquivo(String arquivo, int porta) {
+    public void SendArquivo(String arquivo, int porta) {
+        arquivo = arquivo.split(Pattern.quote("$"))[1];
         if(this.listaDeArquivos.contains(arquivo)){
-            //TODO: CRIPTOGRAFAR E ENVIAR O ARQUIVO POR AQUI
-            return "Arquivo enviado";
+            try {
+                Thread.sleep(100);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            UDPClient conexao_unicast = new UDPClient(this.enderecoIP, porta);
+            System.out.println("SELECIONANDO O ARQUIVO PARA ENVIO EM:" + file.getName()+"\\"+arquivo);
+            Path path = Paths.get(file.getName()+"\\"+arquivo);
+            try {
+                byte[] arqData = Files.readAllBytes(path);
+                conexao_unicast.enviaMensagem(("@"+arqData.toString()).getBytes());
+
+            } catch (IOException ex) {
+                Logger.getLogger(ProcessoUsuario.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            
         }
         else{
-            return "Não possuo o arquivo solicitado";
+            return;
         }
+    }
+    
+    void RecebeArq(String arqParaTratar){
+        String[] tratado = arqParaTratar.split("!");
+        System.out.println("Qualé a musica"+tratado[1]);
+        String decriptado = decriptografaPub(tratado[1],this.listaDeChavesUsuarios.get(Integer.parseInt(tratado[0])));
+        System.out.println(decriptado);
     }
 }
