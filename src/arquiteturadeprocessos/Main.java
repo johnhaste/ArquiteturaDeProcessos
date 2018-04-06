@@ -5,6 +5,7 @@
  */
 package arquiteturadeprocessos;
 
+import java.io.File;
 import java.util.Scanner;
 
 /**
@@ -28,14 +29,29 @@ public class Main {
         
         //Envia um "oi" para a rede, para os outros adicionarem ele
         a.SendOlah("MULTICAST",porta);
-        
-        for(int i = 0;i<1000000;i++){}
-        
-        //a.TestaCriptografia();
-        if(a.getNome_usuario().equals("Gui")){
-            System.out.println("PEDINDO...");
-            a.PedeArquivo("Senhor dos Aneis.mp4");
+
+        try {
+            Thread.sleep(5500);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         
+        while(true){
+            String nomeArq;
+            teclado = new Scanner(System.in);
+            System.out.println("Digite o nome do arquivo que deseja ou Q para sair:");
+            nomeArq = teclado.nextLine();
+            if(nomeArq.equals("Q"))
+                break;
+            else if(a.listaDeArquivos.contains(nomeArq)){
+                System.out.println("VOCÊ JÁ POSSUI ESSE ARQUIVO. TENTE NOVAMENTE");
+                continue;
+            }
+            if(a.TemMaisUsuarios())
+                a.PedeArquivo(nomeArq);
+            else
+                System.out.println("VOCÊ ESTÁ SOZINHO NESSE ROLÊ.");
+        }
+        a.conexao_multicast.interrupt();
     }
 }

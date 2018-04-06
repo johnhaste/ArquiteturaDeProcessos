@@ -18,7 +18,7 @@ public class MulticastPeer extends Thread {
     MulticastPeer(ProcessoUsuario user) throws IOException {
 
         this.user = user;                
-        this.group = InetAddress.getByName("228.5.6.8"); // endereço final 7 parou de funcionar
+        this.group = InetAddress.getByName("228.5.6.7"); // endereço final 7 parou de funcionar
         this.socket = new MulticastSocket(6789);
         this.socket.joinGroup(group);
         this.start();

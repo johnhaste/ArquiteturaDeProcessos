@@ -6,10 +6,12 @@
 package arquiteturadeprocessos;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.net.SocketException;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyFactory;
@@ -49,26 +51,34 @@ public class ProcessoUsuario implements Serializable{
     //Chave dos outros (Porta dos Usuários, Chave Pública)
     private HashMap<Integer, PublicKey> listaDeChavesUsuarios;
     //Lista de arquivos que possui
-    private ArrayList<String> listaDeArquivos;
+    public ArrayList<String> listaDeArquivos;
     //Reputação dos outros
-    private HashMap<String, String> listaDeReputacao;
+    private HashMap<Integer, Integer> listaDeReputacao;
     //MulticastPeer
     public MulticastPeer conexao_multicast;
     //Servidor Unicast
     public UDPServer conexao_unicast_server;
+    //Flag que identifica o pedido de um arquivo
+    public boolean pedindoArquivo;
+    //Lista de usuários com o arquivo solicitado
+    private ArrayList<Integer> listaUsersArquivo;
+    //Ultimo arquivo pedido pelo usuario
+    private String arqSolicitado;
     
     public ProcessoUsuario(String nome_usuario, int porta_usuario) {
         try {
             this.nome_usuario = nome_usuario;
             this.porta_usuario = porta_usuario;
-            this.enderecoIP = "192.168.1.6"; //COLOCAR O IP DA REDE ONDE O APP RODARÁ
+            this.enderecoIP = "192.168.1.4"; //COLOCAR O IP DA REDE ONDE O APP RODARÁ
             this.listaDeChavesUsuarios = new HashMap();
-            CriaParDeChaves();
-            listaDeArquivos = new ArrayList<>();
-            listaDeChavesUsuarios = new HashMap<>();
-            listaDeChavesUsuarios.put(this.porta_usuario,this.chave_publica);
-            conexao_multicast = new MulticastPeer(this);
-            conexao_unicast_server = new UDPServer(this);
+            this.CriaParDeChaves();
+            this.listaDeArquivos = new ArrayList<>();
+            this.listaDeChavesUsuarios = new HashMap<>();
+            this.listaDeChavesUsuarios.put(this.porta_usuario,this.chave_publica);
+            this.conexao_multicast = new MulticastPeer(this);
+            this.conexao_unicast_server = new UDPServer(this);
+            this.listaArquivos();
+            this.pedindoArquivo = false;
             
         } catch (IOException ex) {
             Logger.getLogger(ProcessoUsuario.class.getName()).log(Level.SEVERE, null, ex);
@@ -97,10 +107,13 @@ public class ProcessoUsuario implements Serializable{
     public void SendOlah(String metodo, int porta){
         byte[] chavePub = this.chave_publica.getEncoded();
         String mensagem = "="+ this.porta_usuario.toString() + ";" + Base64.getEncoder().encodeToString(chavePub)+";";
-        if(metodo.equals("MULTICAST")){
+        if(metodo.equals("MULTICAST")){ 
+            this.conexao_unicast_server.start();
+            for(int i = 0 ; i< 1000000 ; i++){}
             conexao_multicast.enviaMensagem(mensagem.getBytes());
         }else if(metodo.equals("UNICAST")){
-            UDPClient conexao_unicast = new UDPClient(mensagem.getBytes(), this.enderecoIP, porta);
+            UDPClient conexao_unicast = new UDPClient(this.enderecoIP, porta);
+            conexao_unicast.enviaMensagem(mensagem.getBytes());
         }
     }
     
@@ -117,6 +130,7 @@ public class ProcessoUsuario implements Serializable{
         if(!this.listaDeChavesUsuarios.containsKey(portaAux)){
             System.out.println("ADICIONADO O USUÁRIO DA PORTA: " + portaAux + " COM A CHAVE PUB: " + p.toString());
             this.listaDeChavesUsuarios.put(portaAux,p);
+            //this.listaDeReputacao.put(portaAux, 0);
             if(metodo.equals("MULTICAST"))
                 SendOlah("UNICAST", portaAux);
         }else if(portaAux.equals(this.porta_usuario)){
@@ -126,7 +140,12 @@ public class ProcessoUsuario implements Serializable{
         }
     }        
     public void PedeArquivo(String nomeArq){
+        this.arqSolicitado = nomeArq;
         String mensagem = "?"+this.porta_usuario+"?"+nomeArq;
+        this.pedindoArquivo = true;
+        this.conexao_unicast_server.interrupt();
+        this.conexao_unicast_server.start();
+        for(int i = 0 ; i< 1000000 ; i++){}
         conexao_multicast.enviaMensagem(mensagem.getBytes());
     }
     
@@ -136,11 +155,20 @@ public class ProcessoUsuario implements Serializable{
         if(porta == this.porta_usuario)
             return;
         System.out.println("O USUÁRIO "+porta+" ESTÁ PERGUNTANDO SE VOCÊ TEM O ARQUIVO "+aux[2]);
-        if(!this.listaDeArquivos.contains(arq)){
-            //TODO: CRIPTOGRAFAR E ENVIAR ARQUIVO
+        if(this.listaDeArquivos.contains(arq)){
+            UDPClient conexao_unicast = new UDPClient(this.enderecoIP, porta);
+            conexao_unicast.enviaMensagem(("!#"+this.porta_usuario+"!Eu tenho o arquivo!").getBytes());
         }
     }
-    
+    void RecebeUsuarioComArquivo(String strParaTratar){
+        if(this.pedindoArquivo){
+            String[] tratado = strParaTratar.split("!");
+            if(tratado[2].equals("Eu tenho o arquivo")){
+                //Adiciona um usuário com o arquivo desejado.
+                this.listaUsersArquivo.add(Integer.parseInt(tratado[1].replace("#", "")));
+            }
+        }
+    }
     void RecebeArq(String arqParaTratar){
         String[] tratado = arqParaTratar.split("!");
         System.out.println(tratado[1]);
@@ -184,23 +212,55 @@ public class ProcessoUsuario implements Serializable{
     }
     
     public void ExibeUsuariosDaRede(){
-        
         this.listaDeChavesUsuarios.forEach((k,v) -> System.out.println("key: "+k+" value:"+v));
     }
-    public void TestaCriptografia(){
-
-        String entrada = this.criptografaPriv("Oi carinha");
-        System.out.println("CRIPTOGRAFADO TEXTO:"+entrada);
-        System.out.println("CRIPTOGRAFADO BYTES:"+entrada.getBytes());
-        //System.out.println(this.listaDeChavesUsuarios.get(this.porta_usuario).toString());
-        entrada = "CRIP"+entrada+"CRIP";
-        String[] saida = entrada.split("CRIP");
-        for(String s:saida){
-            System.out.println("POSIÇÃO>>>");
-            System.out.println(s);
+    
+    public boolean TemMaisUsuarios(){
+        return this.listaDeChavesUsuarios.size() > 1;
+    }
+    void solicitaEnvio() {
+        if(this.listaUsersArquivo.isEmpty()){
+            System.out.println("A busca não retornou nenhum usuário com o arquivo");
+            this.pedindoArquivo = false;
+            return;
         }
-        System.out.println("BYTES: " + saida[1].getBytes());
-        String decrip = decriptografaPub(saida[1], this.chave_publica);
-        System.out.println("DECRIP: "+ decrip);
+        else{
+            Integer melhorPorta = null;
+            Integer melhorReputacao = -99;
+            for(Integer i : this.listaUsersArquivo){
+                if(this.listaDeReputacao.get(i) > melhorReputacao){
+                    melhorPorta = i;
+                }
+            }
+            if(melhorPorta != null){
+                UDPClient conexao_unicast = new UDPClient(this.enderecoIP, melhorPorta);
+                this.conexao_unicast_server.start();
+                conexao_unicast.enviaMensagem(("$"+this.arqSolicitado+"$").getBytes()); 
+            }
+            else{
+                System.out.println("Não foi encontrado um bom peer para lhe enviar o arquivo");
+            }
+            
+        }
+    }
+    
+    void listaArquivos(){
+        File file = new File(".\\SHARE\\");
+        String[] arquivos = file.list();
+        System.out.println("VOCÊ POSSUI OS SEGUINTES ARQUIVOS PARA COMPARTILHAR:");
+        for(String s:arquivos){
+            System.out.println(s);
+            this.listaDeArquivos.add(s);
+        }
+    }
+    
+    String SendArquivo(String arquivo, int porta) {
+        if(this.listaDeArquivos.contains(arquivo)){
+            //TODO: CRIPTOGRAFAR E ENVIAR O ARQUIVO POR AQUI
+            return "Arquivo enviado";
+        }
+        else{
+            return "Não possuo o arquivo solicitado";
+        }
     }
 }
