@@ -29,18 +29,19 @@ public class Main {
                 ProcessoUsuario a = new ProcessoUsuario("Lula",3333);
                 a.SendOlah("MULTICAST",3333);
                 iniciaConexao(a);
-                //Fecha a conexão
                 a.conexao_multicast.interrupt();
                 break;
             case 2:
                 ProcessoUsuario b = new ProcessoUsuario("Aecio",4444);
                 b.SendOlah("MULTICAST",4444);
                 iniciaConexao(b);
+                b.conexao_multicast.interrupt();
                 break;    
             case 3:
                 ProcessoUsuario c = new ProcessoUsuario("Dilma",5555);
                 c.SendOlah("MULTICAST",5555);
                 iniciaConexao(c);
+                c.conexao_multicast.interrupt();
                 break;
         }
         
@@ -54,7 +55,6 @@ public class Main {
         System.out.println("Digite uma porta para acessar o Sonin Bleinin Torrent");
         int porta = teclado.nextInt();
         
-            
         //Cria um novo processo para o usuário
         ProcessoUsuario a = new ProcessoUsuario(nomeUser,porta);
         
