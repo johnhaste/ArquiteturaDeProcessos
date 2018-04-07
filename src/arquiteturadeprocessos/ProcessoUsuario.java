@@ -8,6 +8,8 @@ package arquiteturadeprocessos;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -64,10 +66,12 @@ public class ProcessoUsuario implements Serializable{
     
     //Inicializa as variáveis do usuário
     public ProcessoUsuario(String nome_usuario, int porta_usuario) {
-        try {
+        
+        
+        try {            
+            this.enderecoIP = InetAddress.getLocalHost().toString().split("/")[1];//Ip da máquina local
             this.nome_usuario = nome_usuario;
             this.porta_usuario = porta_usuario;
-            this.enderecoIP = "10.10.33.194"; //COLOCAR O IP DA REDE ONDE O APP RODARÁ
             this.listaDeChavesUsuarios = new HashMap();
             this.CriaParDeChaves();
             this.listaDeArquivos = new ArrayList<>();
@@ -78,8 +82,7 @@ public class ProcessoUsuario implements Serializable{
             this.listaArquivos();
             this.listaUsersArquivo = new ArrayList<Integer>();
             this.pedindoArquivo = false;
-            this.listaDeReputacao = new HashMap<>();
-            
+            this.listaDeReputacao = new HashMap<>(); 
         } catch (IOException ex) {
             Logger.getLogger(ProcessoUsuario.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -340,6 +343,6 @@ public class ProcessoUsuario implements Serializable{
         //salvar o conteúdo de "decriptografaPub(tratado[2],this.listaDeChavesUsuarios.get(porta))"
         //no arquivo com o nome contido em this.arqSolicitado.
         //Adicionar a lista de arquivos desse usuário o arquivo que foi salvo.
-
+        
     }
 }
